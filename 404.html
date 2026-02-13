@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>404 // NEURAL PATH NOT FOUND</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Courier New', monospace;
+      background: #000;
+      color: #0ff;
+      overflow: hidden;
+    }
+
+    #gameCanvas {
+      display: block;
+      background: #000;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .header {
+      text-align: center;
+      padding: 30px;
+      background: rgba(0, 0, 0, 0.7);
+    }
+
+    .error-code {
+      font-size: 4rem;
+      font-weight: bold;
+      text-shadow:
+        0 0 10px #f00,
+        0 0 20px #f00,
+        0 0 30px #f00;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.05); }
+    }
+
+    .message {
+      font-size: 1.2rem;
+      margin-top: 10px;
+      letter-spacing: 3px;
+    }
+
+    .instructions {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px 40px;
+      border: 2px solid #0ff;
+      pointer-events: auto;
+    }
+
+    .instructions h3 {
+      margin-bottom: 15px;
+      font-size: 1.2rem;
+      text-shadow: 0 0 10px #0ff;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+
+    .control-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .key {
+      background: rgba(0, 255, 255, 0.2);
+      padding: 5px 10px;
+      border: 1px solid #0ff;
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .stats {
+      position: fixed;
+      top: 120px;
+      right: 30px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px;
+      border: 2px solid #0ff;
+      min-width: 200px;
+    }
+
+    .stat {
+      display: flex;
+      justify-content: space-between;
+      margin: 10px 0;
+      font-size: 1.1rem;
+    }
+
+    .stat-value {
+      color: #0f0;
+      text-shadow: 0 0 10px #0f0;
+    }
+
+    .home-btn {
+      margin-top: 20px;
+      padding: 12px 30px;
+      background: transparent;
+      border: 2px solid #0ff;
+      color: #0ff;
+      font-family: 'Courier New', monospace;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: none;
+      display: inline-block;
+      pointer-events: auto;
+    }
+
+    .home-btn:hover {
+      background: rgba(0, 255, 255, 0.2);
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+      transform: translateY(-2px);
+    }
+
+    .game-over {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.95);
+      padding: 50px;
+      border: 3px solid #f00;
+      text-align: center;
+      display: none;
+      z-index: 100;
+      pointer-events: auto;
+    }
+
+    .game-over.show {
+      display: block;
+      animation: fadeIn 0.5s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+      to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+
+    .game-over-title {
+      font-size: 3rem;
+      color: #f00;
+      text-shadow: 0 0 20px #f00;
+      margin-bottom: 20px;
+    }
+
+    .final-score {
+      font-size: 2rem;
+      color: #0ff;
+      margin: 20px 0;
+    }
+
+    .scanline {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.1) 0px,
+        rgba(0, 0, 0, 0.1) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      pointer-events: none;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+
+  <div class="scanline"></div>
+
+  <div class="overlay">
+    <div class="header">
+      <div class="error-code">404</div>
+      <div class="message">NEURAL PATH NOT FOUND</div>
+      <div class="message" style="font-size: 0.9rem; margin-top: 10px; color: #0aa;">
+        DEFEND THE SYSTEM WHILE WE REROUTE
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat">
+        <span>SCORE:</span>
+        <span class="stat-value" id="score">0</span>
+      </div>
+      <div class="stat">
+        <span>WAVE:</span>
+        <span class="stat-value" id="wave">1</span>
+      </div>
+      <div class="stat">
+        <span>HEALTH:</span>
+        <span class="stat-value" id="health">100</span>
+      </div>
+    </div>
+
+    <div class="instructions">
+      <h3>[ CONTROLS ]</h3>
+      <div class="controls">
+        <div class="control-item">
+          <span class="key">← →</span>
+          <span>MOVE</span>
+        </div>
+        <div class="control-item">
+          <span class="key">SPACE</span>
+          <span>FIRE</span>
+        </div>
+      </div>
+      <a href="/" class="home-btn">RETURN TO BASE</a>
+    </div>
+  </div>
+
+  <div class="game-over" id="gameOver">
+    <div class="game-over-title">SYSTEM COMPROMISED</div>
+    <div class="final-score">FINAL SCORE: <span id="finalScore">0</span></div>
+    <div style="margin-top: 30px;">
+      <button class="home-btn" onclick="restartGame()">REBOOT SYSTEM</button>
+      <a href="/" class="home-btn" style="margin-left: 20px;">RETURN TO BASE</a>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+
+    // Game state
+    let gameRunning = true;
+    let score = 0;
+    let wave = 1;
+    let health = 100;
+
+    // Player
+    const player = {
+      x: canvas.width / 2,
+      y: canvas.height - 100,
+      width: 30,
+      height: 30,
+      speed: 7,
+      dx: 0
+    };
+
+    // Bullets
+    const bullets = [];
+    const bulletSpeed = 8;
+
+    // Enemies
+    const enemies = [];
+    let enemySpeed = 2;
+
+    // Particles
+    const particles = [];
+
+    // Input
+    const keys = {};
+
+    window.addEventListener('keydown', (e) => {
+      keys[e.key] = true;
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (gameRunning) shoot();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.key] = false;
+    });
+
+    function shoot() {
+      bullets.push({
+        x: player.x,
+        y: player.y,
+        width: 3,
+        height: 15
+      });
+    }
+
+    function spawnEnemy() {
+      enemies.push({
+        x: Math.random() * (canvas.width - 30),
+        y: -30,
+        width: 30,
+        height: 30,
+        speed: enemySpeed + Math.random() * 2
+      });
+    }
+
+    // Spawn enemies
+    setInterval(() => {
+      if (gameRunning) {
+        spawnEnemy();
+        if (Math.random() > 0.5) spawnEnemy();
+      }
+    }, 1000);
+
+    function createExplosion(x, y, color = '#0ff') {
+      for (let i = 0; i < 15; i++) {
+        particles.push({
+          x,
+          y,
+          vx: (Math.random() - 0.5) * 6,
+          vy: (Math.random() - 0.5) * 6,
+          life: 1,
+          color
+        });
+      }
+    }
+
+    function update() {
+      if (!gameRunning) return;
+
+      // Player movement
+      if (keys['ArrowLeft'] || keys['a']) player.dx = -player.speed;
+      else if (keys['ArrowRight'] || keys['d']) player.dx = player.speed;
+      else player.dx = 0;
+
+      player.x += player.dx;
+      player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+
+      // Update bullets
+      bullets.forEach((bullet, index) => {
+        bullet.y -= bulletSpeed;
+        if (bullet.y < 0) bullets.splice(index, 1);
+      });
+
+      // Update enemies
+      enemies.forEach((enemy, index) => {
+        enemy.y += enemy.speed;
+
+        // Check collision with player
+        if (
+          enemy.x < player.x + player.width &&
+          enemy.x + enemy.width > player.x &&
+          enemy.y < player.y + player.height &&
+          enemy.y + enemy.height > player.y
+        ) {
+          createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, '#f00');
+          enemies.splice(index, 1);
+          health -= 10;
+          updateStats();
+          if (health <= 0) gameOver();
+        }
+
+        // Remove if off screen
+        if (enemy.y > canvas.height) {
+          enemies.splice(index, 1);
+        }
+      });
+
+      // Check bullet-enemy collisions
+      bullets.forEach((bullet, bIndex) => {
+        enemies.forEach((enemy, eIndex) => {
+          if (
+            bullet.x < enemy.x + enemy.width &&
+            bullet.x + bullet.width > enemy.x &&
+            bullet.y < enemy.y + enemy.height &&
+            bullet.y + bullet.height > enemy.y
+          ) {
+            createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+            bullets.splice(bIndex, 1);
+            enemies.splice(eIndex, 1);
+            score += 10;
+            updateStats();
+
+            // Wave progression
+            if (score % 100 === 0) {
+              wave++;
+              enemySpeed += 0.5;
+              updateStats();
+            }
+          }
+        });
+      });
+
+      // Update particles
+      particles.forEach((p, index) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 0.02;
+        if (p.life <= 0) particles.splice(index, 1);
+      });
+    }
+
+    function draw() {
+      // Clear with trail effect
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw player (triangle)
+      ctx.fillStyle = '#0ff';
+      ctx.shadowBlur = 20;
+      ctx.shadowColor = '#0ff';
+      ctx.beginPath();
+      ctx.moveTo(player.x + player.width / 2, player.y);
+      ctx.lineTo(player.x, player.y + player.height);
+      ctx.lineTo(player.x + player.width, player.y + player.height);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Draw bullets
+      ctx.fillStyle = '#0f0';
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#0f0';
+      bullets.forEach(bullet => {
+        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+      });
+      ctx.shadowBlur = 0;
+
+      // Draw enemies
+      ctx.fillStyle = '#f00';
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#f00';
+      enemies.forEach(enemy => {
+        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+      });
+      ctx.shadowBlur = 0;
+
+      // Draw particles
+      particles.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life;
+        ctx.fillRect(p.x, p.y, 3, 3);
+      });
+      ctx.globalAlpha = 1;
+
+      // Draw stars
+      for (let i = 0; i < 50; i++) {
+        const x = (i * 137.5) % canvas.width;
+        const y = (i * 197.3 + Date.now() * 0.05) % canvas.height;
+        ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
+        ctx.fillRect(x, y, 1, 1);
+      }
+    }
+
+    function updateStats() {
+      document.getElementById('score').textContent = score;
+      document.getElementById('wave').textContent = wave;
+      document.getElementById('health').textContent = Math.max(0, health);
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      document.getElementById('finalScore').textContent = score;
+      document.getElementById('gameOver').classList.add('show');
+    }
+
+    function restartGame() {
+      gameRunning = true;
+      score = 0;
+      wave = 1;
+      health = 100;
+      enemySpeed = 2;
+      enemies.length = 0;
+      bullets.length = 0;
+      particles.length = 0;
+      player.x = canvas.width / 2;
+      updateStats();
+      document.getElementById('gameOver').classList.remove('show');
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>

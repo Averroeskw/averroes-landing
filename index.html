@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARCHIE AI // Autonomous Neural Interface</title>
+  <style>
+    @font-face {
+      font-family: 'Stardock';
+      src: url('/fonts/Stardock.eot');
+      src: url('/fonts/Stardock.eot?#iefix') format('embedded-opentype'),
+           url('/fonts/Stardock.woff') format('woff'),
+           url('/fonts/Stardock.ttf') format('truetype');
+      font-style: normal;
+      font-weight: normal;
+      text-rendering: optimizeLegibility;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Stardock', 'Courier New', monospace;
+      background: #000;
+      color: #0ff;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Background image layer */
+    .bg-image {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: url('/assets/backgrounds/6.png');
+      background-size: cover;
+      background-position: center;
+      opacity: 0.3;
+      z-index: 0;
+    }
+
+    /* Three.js WebGL container */
+    #webgl-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Scanlines overlay */
+    .scanlines {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.1) 0px,
+        rgba(0, 0, 0, 0.1) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.3;
+    }
+
+    /* Moving scanline */
+    .scanline {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(
+        to bottom,
+        transparent,
+        rgba(0, 255, 255, 0.4),
+        transparent
+      );
+      z-index: 2;
+      pointer-events: none;
+      animation: scan 8s linear infinite;
+    }
+
+    @keyframes scan {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
+
+    /* Main container */
+    .container {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    /* Terminal */
+    .terminal {
+      background: rgba(0, 5, 15, 0.85);
+      backdrop-filter: blur(10px);
+      border: 3px solid;
+      border-image: linear-gradient(135deg, #0ff 0%, #00f 50%, #0ff 100%) 1;
+      padding: 50px;
+      max-width: 700px;
+      width: 100%;
+      position: relative;
+      box-shadow:
+        0 0 40px rgba(0, 255, 255, 0.5),
+        inset 0 0 40px rgba(0, 255, 255, 0.08),
+        0 20px 60px rgba(0, 0, 0, 0.7);
+    }
+
+    .terminal::before,
+    .terminal::after {
+      content: '';
+      position: absolute;
+      width: 25px;
+      height: 25px;
+      border: 3px solid #0ff;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.8);
+    }
+
+    .terminal::before {
+      top: -3px;
+      left: -3px;
+      border-right: none;
+      border-bottom: none;
+    }
+
+    .terminal::after {
+      bottom: -3px;
+      right: -3px;
+      border-left: none;
+      border-top: none;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .logo {
+      font-size: 3.5rem;
+      font-weight: bold;
+      color: #0ff;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+      letter-spacing: 12px;
+    }
+
+    .subtitle {
+      font-size: 1.1rem;
+      color: #0aa;
+      margin-top: 15px;
+      letter-spacing: 6px;
+      opacity: 0.9;
+    }
+
+    .divider {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #0ff, #00f, #0ff, transparent);
+      margin: 30px 0;
+      animation: dividerPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes dividerPulse {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    /* Form elements */
+    .input-group {
+      margin: 30px 0;
+      position: relative;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      color: #0ff;
+      font-weight: bold;
+    }
+
+    .input-group input {
+      width: 100%;
+      background: rgba(0, 255, 255, 0.05);
+      border: 2px solid rgba(0, 255, 255, 0.3);
+      color: #0ff;
+      padding: 15px 20px;
+      font-family: 'Stardock', 'Courier New', monospace;
+      font-size: 1.1rem;
+      transition: all 0.3s ease;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      background: rgba(0, 255, 255, 0.1);
+      border-color: #0ff;
+      box-shadow:
+        0 0 20px rgba(0, 255, 255, 0.4),
+        inset 0 0 10px rgba(0, 255, 255, 0.1);
+    }
+
+    .input-group input::placeholder {
+      color: rgba(0, 170, 170, 0.5);
+      letter-spacing: 2px;
+    }
+
+    /* Button */
+    .btn {
+      width: 100%;
+      background: transparent;
+      border: 3px solid #0ff;
+      color: #0ff;
+      padding: 18px;
+      font-family: 'Stardock', 'Courier New', monospace;
+      font-size: 1.2rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      margin-top: 20px;
+    }
+
+    .btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.3), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .btn:hover::before {
+      left: 100%;
+    }
+
+    .btn:hover {
+      background: rgba(0, 255, 255, 0.15);
+      box-shadow:
+        0 0 30px rgba(0, 255, 255, 0.6),
+        inset 0 0 20px rgba(0, 255, 255, 0.2);
+      transform: translateY(-3px);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    /* Services */
+    .services {
+      margin-top: 50px;
+      padding-top: 40px;
+      border-top: 2px solid rgba(0, 255, 255, 0.2);
+    }
+
+    .services-title {
+      text-align: center;
+      font-size: 0.9rem;
+      color: #0ff;
+      margin-bottom: 25px;
+      letter-spacing: 4px;
+      font-weight: bold;
+    }
+
+    .service-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 20px;
+    }
+
+    .service-link {
+      display: block;
+      padding: 20px;
+      background: rgba(0, 255, 255, 0.03);
+      border: 2px solid rgba(0, 255, 255, 0.2);
+      text-align: center;
+      text-decoration: none;
+      color: #0ff;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .service-link::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      background: rgba(0, 255, 255, 0.1);
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      transition: width 0.4s ease, height 0.4s ease;
+    }
+
+    .service-link:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    .service-link:hover {
+      background: rgba(0, 255, 255, 0.1);
+      border-color: #0ff;
+      box-shadow:
+        0 0 20px rgba(0, 255, 255, 0.4),
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+      transform: scale(1.05);
+    }
+
+    .service-name {
+      font-size: 1rem;
+      font-weight: bold;
+      letter-spacing: 2px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .service-desc {
+      font-size: 0.75rem;
+      color: #0aa;
+      margin-top: 8px;
+      letter-spacing: 1px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Status bar */
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 5, 15, 0.95);
+      backdrop-filter: blur(10px);
+      border-top: 2px solid #0ff;
+      padding: 12px 30px;
+      font-size: 0.8rem;
+      display: flex;
+      justify-content: space-between;
+      z-index: 100;
+      box-shadow: 0 -5px 20px rgba(0, 255, 255, 0.2);
+    }
+
+    .status-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      letter-spacing: 2px;
+    }
+
+    .pulse {
+      width: 8px;
+      height: 8px;
+      background: #0f0;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #0f0;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.5;
+        transform: scale(0.8);
+      }
+    }
+
+    /* Error */
+    .error {
+      color: #f00;
+      font-size: 0.9rem;
+      margin-top: 15px;
+      text-align: center;
+      display: none;
+      text-shadow: 0 0 10px #f00;
+    }
+
+    .error.show {
+      display: block;
+      animation: shake 0.5s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .logo {
+        font-size: 2.5rem;
+        letter-spacing: 8px;
+      }
+
+      .terminal {
+        padding: 30px;
+      }
+
+      .service-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Three.js WebGL container -->
+  <div id="webgl-container"></div>
+
+  <!-- Scanlines -->
+  <div class="scanlines"></div>
+  <div class="scanline"></div>
+
+  <!-- Main content -->
+  <div class="container">
+    <div class="terminal">
+      <div class="header">
+        <div class="logo">ARCHIE AI</div>
+        <div class="subtitle">AUTONOMOUS NEURAL INTERFACE</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <form id="loginForm">
+        <div class="input-group">
+          <label for="username">[ AI USER ID ]</label>
+          <input
+            type="text"
+            id="username"
+            placeholder="ENTER NEURAL ID"
+            autocomplete="username"
+          >
+        </div>
+
+        <div class="input-group">
+          <label for="password">[ AUTH TOKEN ]</label>
+          <input
+            type="password"
+            id="password"
+            placeholder="••••••••••••••••"
+            autocomplete="current-password"
+          >
+        </div>
+
+        <div class="error" id="error">
+          ⚠ AI CORE // ACCESS DENIED ⚠
+        </div>
+
+        <button type="submit" class="btn">
+          INITIALIZE AI LINK
+        </button>
+      </form>
+
+      <div class="services">
+        <div class="services-title">[ AI MODULES ]</div>
+        <div class="service-grid">
+          <a href="https://archie.averroes.cloud" class="service-link">
+            <div class="service-name">CORE</div>
+            <div class="service-desc">Neural Interface</div>
+          </a>
+          <a href="#" class="service-link" data-service="dashboard">
+            <div class="service-name">CORTEX</div>
+            <div class="service-desc">AI Dashboard</div>
+          </a>
+          <a href="#" class="service-link" data-service="portfolio">
+            <div class="service-name">MEMORY</div>
+            <div class="service-desc">Data Vault</div>
+          </a>
+          <a href="#" class="service-link" data-service="lab">
+            <div class="service-name">NEXUS</div>
+            <div class="service-desc">AI Lab</div>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="status-item">
+      <div class="pulse"></div>
+      <span>AI CORE ONLINE</span>
+    </div>
+    <div class="status-item">
+      <span>SYSTEM: ARCHIE v2.0</span>
+    </div>
+    <div class="status-item">
+      <span id="time"></span>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+
+  <script>
+    // Load saved credentials on page load
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedUserId = localStorage.getItem('archie_ai_user_id');
+      const savedToken = localStorage.getItem('archie_auth_token');
+
+      if (savedUserId) {
+        document.getElementById('username').value = savedUserId;
+      }
+      if (savedToken) {
+        document.getElementById('password').value = savedToken;
+      }
+    });
+
+    // Time update
+    function updateTime() {
+      const now = new Date();
+      const timeStr = now.toTimeString().split(' ')[0];
+      document.getElementById('time').textContent = `UTC ${timeStr}`;
+    }
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    // Login form
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const aiUserId = document.getElementById('username').value;
+      const authToken = document.getElementById('password').value;
+      const errorEl = document.getElementById('error');
+      const btn = document.querySelector('.btn');
+
+      errorEl.classList.remove('show');
+
+      // Validate authentication
+      if (!aiUserId || !authToken) {
+        errorEl.textContent = '⚠ AI CORE // INPUT REQUIRED ⚠';
+        errorEl.classList.add('show');
+        setTimeout(() => errorEl.classList.remove('show'), 3000);
+        return;
+      }
+
+      // Validate AI User ID range (2021-2040)
+      const userId = parseInt(aiUserId);
+      if (isNaN(userId) || userId < 2021 || userId > 2040) {
+        errorEl.textContent = '⚠ AI USER ID // INVALID RANGE (2021-2040) ⚠';
+        errorEl.classList.add('show');
+        setTimeout(() => errorEl.classList.remove('show'), 3000);
+        return;
+      }
+
+      // Validate Auth Token (must be Averroes@2021)
+      if (authToken !== 'Averroes@2021') {
+        errorEl.textContent = '⚠ AUTH TOKEN // ACCESS DENIED ⚠';
+        errorEl.classList.add('show');
+        setTimeout(() => errorEl.classList.remove('show'), 3000);
+        return;
+      }
+
+      // Save valid credentials to localStorage
+      localStorage.setItem('archie_ai_user_id', aiUserId);
+      localStorage.setItem('archie_auth_token', authToken);
+      localStorage.setItem('archie_last_login', new Date().toISOString());
+
+      // Success animation
+      btn.textContent = 'ESTABLISHING CONNECTION...';
+      btn.style.pointerEvents = 'none';
+
+      setTimeout(() => {
+        window.location.href = 'https://archie.averroes.cloud';
+      }, 1500);
+    });
+
+    // Service links
+    document.querySelectorAll('[data-service]').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const service = e.currentTarget.dataset.service;
+        alert(`Neural node "${service.toUpperCase()}" initializing...\\nComing soon!`);
+      });
+    });
+  </script>
+</body>
+</html>

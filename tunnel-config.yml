@@ -1,0 +1,14 @@
+tunnel: 19ba598f-74b8-448a-be9c-cfbec44830b1
+credentials-file: /etc/cloudflared/cert.json
+
+ingress:
+  # Root domain - landing page
+  - hostname: averroes.cloud
+    service: http://192.168.3.34:3003
+  - hostname: www.averroes.cloud
+    service: http://192.168.3.34:3003
+  # Subdomain - Archie AI Face
+  - hostname: archie.averroes.cloud
+    service: http://192.168.3.34:3002
+  # Catch-all
+  - service: http_status:404
