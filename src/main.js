@@ -3,39 +3,169 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { FilmPass } from 'three/examples/jsm/postprocessing/FilmPass.js';
 import gsap from 'gsap';
 
-class NeuralField {
+// ── Simplex noise (Ashima Arts GLSL, inlined in vertex shader) ──
+const SIMPLEX_NOISE_GLSL = `
+vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+
+float snoise(vec3 v) {
+  const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+  const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+
+  vec3 i = floor(v + dot(v, C.yyy));
+  vec3 x0 = v - i + dot(i, C.xxx);
+
+  vec3 g = step(x0.yzx, x0.xyz);
+  vec3 l = 1.0 - g;
+  vec3 i1 = min(g.xyz, l.zxy);
+  vec3 i2 = max(g.xyz, l.zxy);
+
+  vec3 x1 = x0 - i1 + C.xxx;
+  vec3 x2 = x0 - i2 + C.yyy;
+  vec3 x3 = x0 - D.yyy;
+
+  i = mod289(i);
+  vec4 p = permute(permute(permute(
+    i.z + vec4(0.0, i1.z, i2.z, 1.0))
+    + i.y + vec4(0.0, i1.y, i2.y, 1.0))
+    + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+
+  float n_ = 0.142857142857;
+  vec3 ns = n_ * D.wyz - D.xzx;
+
+  vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+
+  vec4 x_ = floor(j * ns.z);
+  vec4 y_ = floor(j - 7.0 * x_);
+
+  vec4 x = x_ * ns.x + ns.yyyy;
+  vec4 y = y_ * ns.x + ns.yyyy;
+  vec4 h = 1.0 - abs(x) - abs(y);
+
+  vec4 b0 = vec4(x.xy, y.xy);
+  vec4 b1 = vec4(x.zw, y.zw);
+
+  vec4 s0 = floor(b0)*2.0 + 1.0;
+  vec4 s1 = floor(b1)*2.0 + 1.0;
+  vec4 sh = -step(h, vec4(0.0));
+
+  vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy;
+  vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+
+  vec3 p0 = vec3(a0.xy, h.x);
+  vec3 p1 = vec3(a0.zw, h.y);
+  vec3 p2 = vec3(a1.xy, h.z);
+  vec3 p3 = vec3(a1.zw, h.w);
+
+  vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3)));
+  p0 *= norm.x;
+  p1 *= norm.y;
+  p2 *= norm.z;
+  p3 *= norm.w;
+
+  vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+  m = m * m;
+  return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+}
+`;
+
+// ── Shape generators ──
+function generateSphere(count, radius) {
+  const positions = new Float32Array(count * 3);
+  const golden = (1 + Math.sqrt(5)) / 2;
+  for (let i = 0; i < count; i++) {
+    const theta = 2 * Math.PI * i / golden;
+    const phi = Math.acos(1 - 2 * (i + 0.5) / count);
+    positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+    positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+    positions[i * 3 + 2] = radius * Math.cos(phi);
+  }
+  return positions;
+}
+
+function generateTorus(count, R, r) {
+  const positions = new Float32Array(count * 3);
+  const golden = (1 + Math.sqrt(5)) / 2;
+  for (let i = 0; i < count; i++) {
+    const u = (i / count) * Math.PI * 2;
+    const v = ((i * golden) % 1) * Math.PI * 2;
+    positions[i * 3] = (R + r * Math.cos(v)) * Math.cos(u);
+    positions[i * 3 + 1] = (R + r * Math.cos(v)) * Math.sin(u);
+    positions[i * 3 + 2] = r * Math.sin(v);
+  }
+  return positions;
+}
+
+function generateHelix(count, radius, height, turns) {
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const t = i / count;
+    const angle = t * Math.PI * 2 * turns;
+    const r = radius * (0.5 + 0.5 * Math.sin(t * Math.PI));
+    positions[i * 3] = r * Math.cos(angle);
+    positions[i * 3 + 1] = (t - 0.5) * height;
+    positions[i * 3 + 2] = r * Math.sin(angle);
+  }
+  return positions;
+}
+
+function generateIcosahedron(count, radius) {
+  const positions = new Float32Array(count * 3);
+  const geom = new THREE.IcosahedronGeometry(radius, 4);
+  const pos = geom.attributes.position;
+  const vertCount = pos.count;
+  for (let i = 0; i < count; i++) {
+    const vi = i % vertCount;
+    positions[i * 3] = pos.getX(vi);
+    positions[i * 3 + 1] = pos.getY(vi);
+    positions[i * 3 + 2] = pos.getZ(vi);
+  }
+  geom.dispose();
+  return positions;
+}
+
+// ── Main class ──
+class ImmersiveLanding {
   constructor() {
     this.container = document.getElementById('webgl-container');
     this.mouse = new THREE.Vector2();
     this.targetMouse = new THREE.Vector2();
     this.isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
-    this.isLowEnd = this.isMobile && (navigator.hardwareConcurrency || 4) <= 4;
+
+    // Particle counts
+    this.blobCount = this.isMobile ? 5000 : 12000;
+    this.ambientCount = this.isMobile ? 300 : 600;
+
+    // Shape morph state
+    this.shapes = [];
+    this.currentShapeIndex = 0;
+    this.morphProgress = { value: 0 };
 
     this.init();
-    this.createParticleField();
+    this.createMorphingBlob();
+    this.createAmbientParticles();
     this.createPostProcessing();
     this.addEventListeners();
+    this.startMorphCycle();
+    this.startEntryAnimation();
     this.animate();
   }
 
   init() {
-    // Scene
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.FogExp2(0x000000, 0.001);
 
-    // Camera - pulled back for smaller appearance
     this.camera = new THREE.PerspectiveCamera(
       60,
       window.innerWidth / window.innerHeight,
       0.1,
-      1000
+      200
     );
-    this.camera.position.z = 80;
+    this.camera.position.z = 10;
 
-    // Renderer - reduce quality on mobile
     const maxDpr = this.isMobile ? 1.5 : 2;
     this.renderer = new THREE.WebGLRenderer({
       antialias: !this.isMobile,
@@ -44,178 +174,201 @@ class NeuralField {
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDpr));
-    this.renderer.setClearColor(0x000000, 0);
+    this.renderer.setClearColor(0x000000, 1);
     this.container.appendChild(this.renderer.domElement);
 
-    // Clock
     this.clock = new THREE.Clock();
   }
 
-  createParticleField() {
-    const particleCount = this.isLowEnd ? 800 : this.isMobile ? 1500 : 3000;
-    const positions = new Float32Array(particleCount * 3);
-    const colors = new Float32Array(particleCount * 3);
-    const sizes = new Float32Array(particleCount);
-    const velocities = new Float32Array(particleCount * 3);
+  createMorphingBlob() {
+    const count = this.blobCount;
+    const radius = 3.0;
 
-    // Create particle positions - scattered distribution
-    for (let i = 0; i < particleCount; i++) {
-      const i3 = i * 3;
+    // Generate all 4 shape targets
+    this.shapes = [
+      generateSphere(count, radius),
+      generateTorus(count, radius * 0.85, radius * 0.35),
+      generateHelix(count, radius, radius * 2.5, 4),
+      generateIcosahedron(count, radius),
+    ];
 
-      // More scattered, less clustered distribution
-      const radius = 50 + Math.random() * 100; // Larger spread
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-
-      positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
-      positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
-      positions[i3 + 2] = radius * Math.cos(phi);
-
-      // Color gradient (cyan to blue)
-      const hue = 0.5 + Math.random() * 0.15; // 0.5 = cyan, 0.65 = blue
-      const color = new THREE.Color().setHSL(hue, 1.0, 0.5);
-      colors[i3] = color.r;
-      colors[i3 + 1] = color.g;
-      colors[i3 + 2] = color.b;
-
-      // Size - smaller particles
-      sizes[i] = Math.random() * 1 + 0.3;
-
-      // Velocity
-      velocities[i3] = (Math.random() - 0.5) * 0.02;
-      velocities[i3 + 1] = (Math.random() - 0.5) * 0.02;
-      velocities[i3 + 2] = (Math.random() - 0.5) * 0.02;
+    // Start at sphere
+    const positions = new Float32Array(this.shapes[0]);
+    const targets = new Float32Array(this.shapes[1]);
+    const randoms = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      randoms[i] = Math.random();
     }
 
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    this.blobPositionAttr = new THREE.BufferAttribute(positions, 3);
+    this.blobTargetAttr = new THREE.BufferAttribute(targets, 3);
+    geometry.setAttribute('position', this.blobPositionAttr);
+    geometry.setAttribute('aPositionTarget', this.blobTargetAttr);
+    geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
 
-    // Custom shader material
+    this.blobUniforms = {
+      uTime: { value: 0 },
+      uProgress: { value: 0 },
+      uMouse: { value: new THREE.Vector2() },
+      uPointSize: { value: this.isMobile ? 2.0 : 2.5 },
+    };
+
     const material = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uMouse: { value: new THREE.Vector2() },
-        uPointTexture: { value: this.createParticleTexture() }
-      },
+      uniforms: this.blobUniforms,
       vertexShader: `
+        ${SIMPLEX_NOISE_GLSL}
+
         uniform float uTime;
+        uniform float uProgress;
         uniform vec2 uMouse;
+        uniform float uPointSize;
 
-        attribute float size;
-        attribute vec3 color;
+        attribute vec3 aPositionTarget;
+        attribute float aRandom;
 
-        varying vec3 vColor;
         varying float vAlpha;
+        varying float vDist;
 
         void main() {
-          vColor = color;
+          // Morph between current and target shape
+          float stagger = smoothstep(0.0, 1.0, uProgress * 1.4 - aRandom * 0.4);
+          vec3 pos = mix(position, aPositionTarget, stagger);
 
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          // Organic noise displacement
+          float noiseScale = 0.4;
+          float noiseTime = uTime * 0.3;
+          vec3 noiseInput = pos * noiseScale + noiseTime;
+          float n = snoise(noiseInput) * 0.4;
+          pos += normalize(pos) * n;
 
-          // Mouse interaction
-          vec2 mouseInfluence = uMouse * 10.0;
-          float dist = length(position.xy - vec3(mouseInfluence, 0.0).xy);
-          float influence = smoothstep(20.0, 0.0, dist);
-          mvPosition.xy += mouseInfluence * influence * 0.3;
+          // Mouse repulsion
+          vec4 worldPos = modelMatrix * vec4(pos, 1.0);
+          vec2 mouseWorld = uMouse * 5.0;
+          float mouseDist = length(worldPos.xy - mouseWorld);
+          float repel = smoothstep(3.0, 0.0, mouseDist) * 0.8;
+          pos += normalize(pos) * repel;
 
-          // Size based on distance
-          float depth = -mvPosition.z;
-          gl_PointSize = size * (300.0 / depth);
+          vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
+          gl_Position = projectionMatrix * mvPos;
 
-          // Pulsing effect
-          gl_PointSize *= 1.0 + sin(uTime * 2.0 + position.x * 0.1) * 0.2;
+          float depth = max(-mvPos.z, 0.01);
+          gl_PointSize = uPointSize * (3.0 / depth);
+          gl_PointSize *= 0.8 + aRandom * 0.4;
 
-          // Alpha based on depth
-          vAlpha = smoothstep(100.0, 20.0, depth);
-
-          gl_Position = projectionMatrix * mvPosition;
+          // Alpha: center particles brighter
+          float distFromCenter = length(pos) / 4.0;
+          vAlpha = 0.5 + aRandom * 0.5;
+          vAlpha *= smoothstep(1.5, 0.0, distFromCenter);
+          vDist = distFromCenter;
         }
       `,
       fragmentShader: `
-        uniform sampler2D uPointTexture;
-
-        varying vec3 vColor;
         varying float vAlpha;
+        varying float vDist;
 
         void main() {
-          vec4 texColor = texture2D(uPointTexture, gl_PointCoord);
+          float dist = length(gl_PointCoord - 0.5);
+          if (dist > 0.5) discard;
 
-          // Glow effect
-          float strength = distance(gl_PointCoord, vec2(0.5));
-          strength = 1.0 - strength;
-          strength = pow(strength, 3.0);
+          // Bright-center glow (Three.js Journey technique)
+          float glow = 0.05 / dist;
+          glow = clamp(glow, 0.0, 1.0);
 
-          vec3 finalColor = vColor * strength * 2.0;
-          float finalAlpha = texColor.a * vAlpha * strength;
+          // Color: cyan core with slight blue shift at edges
+          vec3 color = mix(vec3(0.0, 1.0, 1.0), vec3(0.3, 0.5, 1.0), vDist);
 
-          gl_FragColor = vec4(finalColor, finalAlpha);
+          float alpha = glow * vAlpha * 0.6;
+          gl_FragColor = vec4(color * glow, alpha);
         }
       `,
       transparent: true,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
-      vertexColors: true
     });
 
-    this.particleField = new THREE.Points(geometry, material);
-    this.particleVelocities = velocities;
-    this.scene.add(this.particleField);
+    this.blob = new THREE.Points(geometry, material);
+    this.scene.add(this.blob);
   }
 
-  createParticleTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 64;
-    canvas.height = 64;
-    const ctx = canvas.getContext('2d');
+  createAmbientParticles() {
+    const count = this.ambientCount;
+    const positions = new Float32Array(count * 3);
+    const randoms = new Float32Array(count);
 
-    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
-    gradient.addColorStop(0.4, 'rgba(0, 255, 255, 0.8)');
-    gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+    for (let i = 0; i < count; i++) {
+      const r = 20 + Math.random() * 60;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = r * Math.cos(phi);
+      randoms[i] = Math.random();
+    }
 
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, 64, 64);
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('aRandom', new THREE.BufferAttribute(randoms, 1));
 
-    const texture = new THREE.CanvasTexture(canvas);
-    return texture;
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: this.blobUniforms.uTime,
+      },
+      vertexShader: `
+        uniform float uTime;
+        attribute float aRandom;
+        varying float vAlpha;
+
+        void main() {
+          vec3 pos = position;
+          pos.x += sin(uTime * 0.05 + aRandom * 6.28) * 0.5;
+          pos.y += cos(uTime * 0.04 + aRandom * 3.14) * 0.5;
+
+          vec4 mvPos = modelViewMatrix * vec4(pos, 1.0);
+          gl_Position = projectionMatrix * mvPos;
+
+          float depth = max(-mvPos.z, 0.01);
+          gl_PointSize = (0.5 + aRandom * 0.5) * (100.0 / depth);
+
+          vAlpha = 0.15 + aRandom * 0.15;
+        }
+      `,
+      fragmentShader: `
+        varying float vAlpha;
+        void main() {
+          float dist = length(gl_PointCoord - 0.5);
+          if (dist > 0.5) discard;
+          float glow = smoothstep(0.5, 0.0, dist);
+          gl_FragColor = vec4(0.0, 0.8, 1.0, glow * vAlpha);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    this.ambientParticles = new THREE.Points(geometry, material);
+    this.scene.add(this.ambientParticles);
   }
 
   createPostProcessing() {
-    // Composer
     this.composer = new EffectComposer(this.renderer);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
 
-    // Render pass
-    const renderPass = new RenderPass(this.scene, this.camera);
-    this.composer.addPass(renderPass);
+    if (this.isMobile) return; // Skip heavy post-processing on mobile
 
-    // Skip heavy post-processing on low-end mobile
-    if (this.isLowEnd) {
-      return;
-    }
-
-    // Bloom pass - reduced strength on mobile
-    const bloomStrength = this.isMobile ? 0.5 : 0.8;
-    const bloomPass = new UnrealBloomPass(
+    // Bloom
+    const bloom = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      bloomStrength,
-      0.3,
-      0.9
+      1.2, 0.4, 0.85
     );
-    this.composer.addPass(bloomPass);
+    this.composer.addPass(bloom);
 
-    // Film grain pass - skip on mobile
-    if (!this.isMobile) {
-      const filmPass = new FilmPass(0.15, 0.025, 648, false);
-      this.composer.addPass(filmPass);
-    }
-
-    // Chromatic aberration pass
-    const chromaticAberrationShader = {
+    // Chromatic aberration
+    const chromaticPass = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
-        uAmount: { value: 0.003 }
+        uAmount: { value: 0.002 }
       },
       vertexShader: `
         varying vec2 vUv;
@@ -228,24 +381,19 @@ class NeuralField {
         uniform sampler2D tDiffuse;
         uniform float uAmount;
         varying vec2 vUv;
-
         void main() {
           vec2 offset = uAmount * (vUv - 0.5);
-
           float r = texture2D(tDiffuse, vUv + offset).r;
           float g = texture2D(tDiffuse, vUv).g;
           float b = texture2D(tDiffuse, vUv - offset).b;
-
           gl_FragColor = vec4(r, g, b, 1.0);
         }
       `
-    };
-
-    const chromaticPass = new ShaderPass(chromaticAberrationShader);
+    });
     this.composer.addPass(chromaticPass);
 
-    // Vignette pass
-    const vignetteShader = {
+    // Vignette
+    const vignettePass = new ShaderPass({
       uniforms: {
         tDiffuse: { value: null },
         uOffset: { value: 0.95 },
@@ -263,7 +411,6 @@ class NeuralField {
         uniform float uOffset;
         uniform float uDarkness;
         varying vec2 vUv;
-
         void main() {
           vec4 texel = texture2D(tDiffuse, vUv);
           vec2 uv = (vUv - 0.5) * 2.0;
@@ -272,26 +419,82 @@ class NeuralField {
           gl_FragColor = texel;
         }
       `
+    });
+    this.composer.addPass(vignettePass);
+  }
+
+  startMorphCycle() {
+    const cycle = () => {
+      const nextIndex = (this.currentShapeIndex + 1) % this.shapes.length;
+      const nextNext = (nextIndex + 1) % this.shapes.length;
+
+      // Update target positions for the morph
+      this.blobTargetAttr.array.set(this.shapes[nextIndex]);
+      this.blobTargetAttr.needsUpdate = true;
+
+      // Animate morph progress 0 → 1
+      gsap.to(this.blobUniforms.uProgress, {
+        value: 1,
+        duration: 3,
+        ease: 'power2.inOut',
+        onComplete: () => {
+          // Snap current positions to target (morph complete)
+          this.blobPositionAttr.array.set(this.shapes[nextIndex]);
+          this.blobPositionAttr.needsUpdate = true;
+
+          // Set next target
+          this.blobTargetAttr.array.set(this.shapes[nextNext]);
+          this.blobTargetAttr.needsUpdate = true;
+
+          // Reset progress
+          this.blobUniforms.uProgress.value = 0;
+          this.currentShapeIndex = nextIndex;
+
+          // Pause, then morph again
+          setTimeout(cycle, 2000);
+        }
+      });
     };
 
-    const vignettePass = new ShaderPass(vignetteShader);
-    this.composer.addPass(vignettePass);
+    // Initial pause before first morph
+    setTimeout(cycle, 2000);
+  }
+
+  startEntryAnimation() {
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+    tl.fromTo('#hero-title',
+      { opacity: 0, filter: 'blur(15px)' },
+      { opacity: 1, filter: 'blur(0px)', duration: 1.5 },
+      0.3
+    )
+    .fromTo('.subtitle',
+      { letterSpacing: '20px', opacity: 0 },
+      { letterSpacing: '10px', opacity: 0.9, duration: 1.2 },
+      0.6
+    )
+    .fromTo('#auth-panel',
+      { opacity: 0, y: 30 },
+      { opacity: 1, y: 0, duration: 1.0 },
+      1.2
+    )
+    .fromTo('.oauth-btn',
+      { opacity: 0, x: -20 },
+      { opacity: 1, x: 0, stagger: 0.15, duration: 0.7 },
+      1.4
+    )
+    .fromTo('#status-bar',
+      { opacity: 0 },
+      { opacity: 1, duration: 0.8 },
+      2.0
+    );
   }
 
   addEventListeners() {
     window.addEventListener('resize', () => this.onResize());
-    window.addEventListener('mousemove', (e) => this.onMouseMove(e));
-
-    // Smooth camera movement on scroll
-    window.addEventListener('wheel', (e) => {
-      gsap.to(this.camera.position, {
-        z: this.camera.position.z + e.deltaY * 0.01,
-        duration: 1,
-        ease: 'power2.out',
-        onUpdate: () => {
-          this.camera.position.z = THREE.MathUtils.clamp(this.camera.position.z, 40, 90);
-        }
-      });
+    window.addEventListener('mousemove', (e) => {
+      this.targetMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      this.targetMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
     });
   }
 
@@ -302,128 +505,44 @@ class NeuralField {
     this.composer.setSize(window.innerWidth, window.innerHeight);
   }
 
-  onMouseMove(event) {
-    this.targetMouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-    this.targetMouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-  }
-
   animate() {
     requestAnimationFrame(() => this.animate());
 
-    const elapsedTime = this.clock.getElapsedTime();
+    const elapsed = this.clock.getElapsedTime();
 
-    // Smooth mouse movement
+    // Smooth mouse
     this.mouse.x += (this.targetMouse.x - this.mouse.x) * 0.05;
     this.mouse.y += (this.targetMouse.y - this.mouse.y) * 0.05;
 
-    // Update particle field
-    if (this.particleField) {
-      this.particleField.material.uniforms.uTime.value = elapsedTime;
-      this.particleField.material.uniforms.uMouse.value = this.mouse;
-      this.particleField.rotation.y = elapsedTime * 0.05;
+    // Update blob
+    this.blobUniforms.uTime.value = elapsed;
+    this.blobUniforms.uMouse.value.copy(this.mouse);
 
-      // Update particle positions
-      const positions = this.particleField.geometry.attributes.position.array;
-      for (let i = 0; i < positions.length; i += 3) {
-        positions[i] += this.particleVelocities[i];
-        positions[i + 1] += this.particleVelocities[i + 1];
-        positions[i + 2] += this.particleVelocities[i + 2];
-
-        // Boundary check
-        const distSq = positions[i] ** 2 + positions[i + 1] ** 2 + positions[i + 2] ** 2;
-
-        if (distSq > 6400 || distSq < 400) {
-          this.particleVelocities[i] *= -1;
-          this.particleVelocities[i + 1] *= -1;
-          this.particleVelocities[i + 2] *= -1;
-        }
-      }
-      this.particleField.geometry.attributes.position.needsUpdate = true;
+    // Gentle blob tilt toward mouse
+    if (this.blob) {
+      this.blob.rotation.y += (this.mouse.x * 0.3 - this.blob.rotation.y) * 0.02;
+      this.blob.rotation.x += (this.mouse.y * 0.15 - this.blob.rotation.x) * 0.02;
     }
 
-    // Camera follows mouse slightly
-    this.camera.position.x += (this.mouse.x * 2 - this.camera.position.x) * 0.02;
-    this.camera.position.y += (this.mouse.y * 2 - this.camera.position.y) * 0.02;
-    this.camera.lookAt(this.scene.position);
+    // Slow ambient rotation
+    if (this.ambientParticles) {
+      this.ambientParticles.rotation.y = elapsed * 0.02;
+    }
 
-    // Render
+    // Camera parallax
+    this.camera.position.x += (this.mouse.x * 0.5 - this.camera.position.x) * 0.02;
+    this.camera.position.y += (this.mouse.y * 0.3 - this.camera.position.y) * 0.02;
+    this.camera.lookAt(0, 0, 0);
+
     this.composer.render();
   }
 }
 
-// Initialize when DOM is ready
+// Initialize
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => new NeuralField());
+  document.addEventListener('DOMContentLoaded', () => new ImmersiveLanding());
 } else {
-  new NeuralField();
+  new ImmersiveLanding();
 }
 
-// UI Animations with GSAP timeline
-function initAnimations() {
-  const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-
-  // Cinematic boot sequence
-  tl.fromTo('.terminal',
-    { opacity: 0, scale: 0.85, y: 30 },
-    { opacity: 1, scale: 1, y: 0, duration: 1.2 },
-    0.3
-  )
-  .fromTo('.logo',
-    { opacity: 0, y: -40, filter: 'blur(10px)' },
-    { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.8 },
-    0.7
-  )
-  .fromTo('.subtitle',
-    { opacity: 0 },
-    { opacity: 0.9, duration: 0.3 },
-    1.0
-  )
-  .fromTo('.divider',
-    { scaleX: 0 },
-    { scaleX: 1, duration: 0.6, ease: 'power2.inOut' },
-    1.2
-  )
-  .fromTo('.auth-label',
-    { opacity: 0, letterSpacing: '12px' },
-    { opacity: 1, letterSpacing: '4px', duration: 0.5 },
-    1.4
-  )
-  .fromTo('.oauth-btn',
-    { opacity: 0, x: -40, skewX: -5 },
-    { opacity: 1, x: 0, skewX: 0, stagger: 0.15, duration: 0.7, ease: 'power2.out' },
-    1.5
-  )
-  .fromTo('.services-title',
-    { opacity: 0 },
-    { opacity: 1, duration: 0.4 },
-    1.9
-  )
-  .fromTo('.service-link',
-    { opacity: 0, scale: 0.5, rotateX: 15 },
-    { opacity: 1, scale: 1, rotateX: 0, stagger: 0.1, duration: 0.5, ease: 'back.out(1.5)' },
-    2.0
-  )
-  .fromTo('.status-bar',
-    { opacity: 0, y: 30 },
-    { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' },
-    2.2
-  );
-
-  // Continuous subtle float on terminal
-  gsap.to('.terminal', {
-    y: -4,
-    duration: 3,
-    ease: 'sine.inOut',
-    yoyo: true,
-    repeat: -1,
-    delay: 2.5
-  });
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAnimations);
-} else {
-  initAnimations();
-}
-
-export default NeuralField;
+export default ImmersiveLanding;
