@@ -2,16 +2,22 @@ version: '3.8'
 
 services:
   landing:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: server/Dockerfile
     container_name: averroes-landing
     ports:
-      - "3003:80"
+      - "3003:3001"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - /tmp/averroes-landing:/usr/share/nginx/html:ro
+      - landing-data:/app/data
+    env_file:
+      - .env
     restart: unless-stopped
     networks:
       - web
+
+volumes:
+  landing-data:
 
 networks:
   web:

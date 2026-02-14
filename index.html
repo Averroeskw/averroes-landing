@@ -4,14 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ARCHIE AI // Autonomous Neural Interface</title>
+  <meta name="robots" content="noindex, nofollow">
+
+  <!-- Favicon -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <style>
     @font-face {
-      font-family: 'Stardock';
-      src: url('/fonts/Stardock.eot');
-      src: url('/fonts/Stardock.eot?#iefix') format('embedded-opentype'),
-           url('/fonts/Stardock.woff') format('woff'),
-           url('/fonts/Stardock.ttf') format('truetype');
+      font-family: 'Morphesd';
+      src: url('/fonts/Morphesd-Regular.otf') format('opentype'),
+           url('/fonts/Morphesd-Regular.ttf') format('truetype');
       font-style: normal;
+      font-weight: normal;
+      text-rendering: optimizeLegibility;
+    }
+
+    @font-face {
+      font-family: 'Morphesd';
+      src: url('/fonts/Morphesd-Italic.otf') format('opentype'),
+           url('/fonts/Morphesd-Italic.ttf') format('truetype');
+      font-style: italic;
       font-weight: normal;
       text-rendering: optimizeLegibility;
     }
@@ -23,7 +35,7 @@
     }
 
     body {
-      font-family: 'Stardock', 'Courier New', monospace;
+      font-family: 'Morphesd', 'Courier New', monospace;
       background: #000;
       color: #0ff;
       overflow-x: hidden;
@@ -168,6 +180,7 @@
       margin-top: 15px;
       letter-spacing: 6px;
       opacity: 0.9;
+      display: inline-block;
     }
 
     .divider {
@@ -182,90 +195,150 @@
       50% { opacity: 1; }
     }
 
-    /* Form elements */
-    .input-group {
+    /* Auth section */
+    .auth-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
       margin: 30px 0;
-      position: relative;
     }
 
-    .input-group label {
-      display: block;
-      margin-bottom: 10px;
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 3px;
-      color: #0ff;
-      font-weight: bold;
-    }
-
-    .input-group input {
-      width: 100%;
-      background: rgba(0, 255, 255, 0.05);
-      border: 2px solid rgba(0, 255, 255, 0.3);
-      color: #0ff;
-      padding: 15px 20px;
-      font-family: 'Stardock', 'Courier New', monospace;
-      font-size: 1.1rem;
-      transition: all 0.3s ease;
-    }
-
-    .input-group input:focus {
-      outline: none;
-      background: rgba(0, 255, 255, 0.1);
-      border-color: #0ff;
-      box-shadow:
-        0 0 20px rgba(0, 255, 255, 0.4),
-        inset 0 0 10px rgba(0, 255, 255, 0.1);
-    }
-
-    .input-group input::placeholder {
-      color: rgba(0, 170, 170, 0.5);
-      letter-spacing: 2px;
-    }
-
-    /* Button */
-    .btn {
-      width: 100%;
-      background: transparent;
-      border: 3px solid #0ff;
-      color: #0ff;
-      padding: 18px;
-      font-family: 'Stardock', 'Courier New', monospace;
-      font-size: 1.2rem;
-      cursor: pointer;
+    .auth-label {
+      text-align: center;
+      font-size: 0.85rem;
       text-transform: uppercase;
       letter-spacing: 4px;
+      color: #0aa;
+      margin-bottom: 4px;
+    }
+
+    /* OAuth buttons */
+    .oauth-btn {
+      width: 100%;
+      background: transparent;
+      border: 2px solid rgba(0, 255, 255, 0.4);
+      color: #0ff;
+      padding: 18px 24px;
+      font-family: 'Morphesd', 'Courier New', monospace;
+      font-size: 1.05rem;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 3px;
       transition: all 0.3s ease;
       position: relative;
       overflow: hidden;
-      margin-top: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      text-decoration: none;
     }
 
-    .btn::before {
+    .oauth-btn::before {
       content: '';
       position: absolute;
       top: 0;
       left: -100%;
       width: 100%;
       height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.3), transparent);
+      background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.15), transparent);
       transition: left 0.5s ease;
     }
 
-    .btn:hover::before {
+    .oauth-btn:hover::before {
       left: 100%;
     }
 
-    .btn:hover {
-      background: rgba(0, 255, 255, 0.15);
+    .oauth-btn:hover {
+      background: rgba(0, 255, 255, 0.1);
+      border-color: #0ff;
       box-shadow:
-        0 0 30px rgba(0, 255, 255, 0.6),
-        inset 0 0 20px rgba(0, 255, 255, 0.2);
-      transform: translateY(-3px);
+        0 0 30px rgba(0, 255, 255, 0.5),
+        inset 0 0 15px rgba(0, 255, 255, 0.1);
+      transform: translateY(-2px);
     }
 
-    .btn:active {
+    .oauth-btn:active {
       transform: translateY(0);
+    }
+
+    .oauth-btn svg {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    .oauth-btn .btn-text {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Google button accent */
+    .oauth-btn--google {
+      border-color: rgba(0, 255, 255, 0.5);
+    }
+
+    .oauth-btn--google:hover {
+      border-color: #0ff;
+      box-shadow:
+        0 0 25px rgba(0, 255, 255, 0.4),
+        inset 0 0 15px rgba(0, 255, 255, 0.08);
+    }
+
+    /* GitHub button accent */
+    .oauth-btn--github {
+      border-color: rgba(0, 255, 255, 0.5);
+    }
+
+    .oauth-btn--github:hover {
+      border-color: #0ff;
+      box-shadow:
+        0 0 25px rgba(0, 255, 255, 0.4),
+        inset 0 0 15px rgba(0, 255, 255, 0.08);
+    }
+
+    /* Separator */
+    .auth-separator {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin: 4px 0;
+    }
+
+    .auth-separator::before,
+    .auth-separator::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.3), transparent);
+    }
+
+    .auth-separator span {
+      font-size: 0.7rem;
+      color: #077;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+
+    /* Error */
+    .error {
+      color: #f00;
+      font-size: 0.9rem;
+      margin-top: 15px;
+      text-align: center;
+      display: none;
+      text-shadow: 0 0 10px #f00;
+    }
+
+    .error.show {
+      display: block;
+      animation: shake 0.5s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
     }
 
     /* Services */
@@ -391,45 +464,427 @@
       }
     }
 
-    /* Error */
-    .error {
-      color: #f00;
-      font-size: 0.9rem;
-      margin-top: 15px;
-      text-align: center;
-      display: none;
-      text-shadow: 0 0 10px #f00;
+    /* Glitch effect on logo */
+    .logo {
+      position: relative;
     }
 
-    .error.show {
-      display: block;
-      animation: shake 0.5s;
+    .logo::before,
+    .logo::after {
+      content: 'ARCHIE AI';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      overflow: hidden;
+      opacity: 0;
     }
 
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-10px); }
-      75% { transform: translateX(10px); }
+    .logo::before {
+      color: #f0f;
+      animation: glitch1 3s infinite linear alternate-reverse;
+      clip-path: inset(0 0 60% 0);
     }
 
-    /* Responsive */
+    .logo::after {
+      color: #0ff;
+      animation: glitch2 2.5s infinite linear alternate-reverse;
+      clip-path: inset(40% 0 0 0);
+    }
+
+    @keyframes glitch1 {
+      0%, 92% { opacity: 0; transform: none; }
+      93% { opacity: 0.8; transform: translate(-3px, -1px); }
+      94% { opacity: 0; transform: none; }
+      96% { opacity: 0.6; transform: translate(2px, 1px); }
+      97% { opacity: 0; transform: none; }
+    }
+
+    @keyframes glitch2 {
+      0%, 90% { opacity: 0; transform: none; }
+      91% { opacity: 0.7; transform: translate(3px, 1px); }
+      92% { opacity: 0; transform: none; }
+      95% { opacity: 0.5; transform: translate(-2px, -1px); }
+      96% { opacity: 0; transform: none; }
+    }
+
+    /* Typing cursor on subtitle */
+    .subtitle {
+      overflow: hidden;
+      white-space: nowrap;
+      border-right: 2px solid #0ff;
+      width: 0;
+      animation: typewriter 2s steps(28) 1.2s forwards, blinkCursor 0.8s step-end infinite;
+    }
+
+    @keyframes typewriter {
+      to { width: 100%; }
+    }
+
+    @keyframes blinkCursor {
+      0%, 100% { border-color: #0ff; }
+      50% { border-color: transparent; }
+    }
+
+    /* Terminal breathing glow */
+    .terminal {
+      animation: terminalBreath 4s ease-in-out infinite;
+    }
+
+    @keyframes terminalBreath {
+      0%, 100% {
+        box-shadow:
+          0 0 40px rgba(0, 255, 255, 0.3),
+          inset 0 0 40px rgba(0, 255, 255, 0.05),
+          0 20px 60px rgba(0, 0, 0, 0.7);
+      }
+      50% {
+        box-shadow:
+          0 0 60px rgba(0, 255, 255, 0.6),
+          inset 0 0 50px rgba(0, 255, 255, 0.1),
+          0 20px 60px rgba(0, 0, 0, 0.7);
+      }
+    }
+
+    /* Animated border gradient */
+    @property --border-angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+
+    .terminal {
+      --border-angle: 0deg;
+      border-image: linear-gradient(var(--border-angle), #0ff 0%, #00f 25%, #f0f 50%, #00f 75%, #0ff 100%) 1;
+      animation: terminalBreath 4s ease-in-out infinite, rotateBorder 6s linear infinite;
+    }
+
+    @keyframes rotateBorder {
+      to { --border-angle: 360deg; }
+    }
+
+    /* Service card scanning line */
+    .service-link::after {
+      content: '';
+      position: absolute;
+      top: -100%;
+      left: 0;
+      width: 100%;
+      height: 50%;
+      background: linear-gradient(to bottom, transparent, rgba(0, 255, 255, 0.08), transparent);
+      transition: top 0.6s ease;
+    }
+
+    .service-link:hover::after {
+      top: 100%;
+    }
+
+    /* Data stream effect in header */
+    .header::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 0;
+      background: linear-gradient(to bottom, #0ff, transparent);
+      animation: dataStream 3s ease-in-out infinite;
+    }
+
+    @keyframes dataStream {
+      0% { height: 0; opacity: 0; top: -30px; }
+      30% { height: 30px; opacity: 1; }
+      60% { height: 30px; opacity: 1; top: -10px; }
+      100% { height: 0; opacity: 0; top: 0; }
+    }
+
+    /* Hex grid background pattern in terminal */
+    .terminal::before,
+    .terminal::after {
+      z-index: -1;
+    }
+
+    /* Responsive - Tablet */
     @media (max-width: 768px) {
+      .container {
+        padding: 15px;
+        padding-bottom: 60px;
+      }
+
+      .terminal {
+        padding: 30px 20px;
+      }
+
       .logo {
         font-size: 2.5rem;
         letter-spacing: 8px;
       }
 
-      .terminal {
-        padding: 30px;
+      .subtitle {
+        font-size: 0.9rem;
+        letter-spacing: 4px;
+      }
+
+      .header {
+        margin-bottom: 25px;
+      }
+
+      .divider {
+        margin: 20px 0;
+      }
+
+      .auth-section {
+        margin: 20px 0;
+        gap: 12px;
+      }
+
+      .oauth-btn {
+        padding: 15px 20px;
+        font-size: 0.95rem;
+        letter-spacing: 2px;
+      }
+
+      .services {
+        margin-top: 30px;
+        padding-top: 25px;
       }
 
       .service-grid {
         grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .service-link {
+        padding: 15px 10px;
+      }
+
+      .status-bar {
+        padding: 10px 15px;
+        font-size: 0.7rem;
+      }
+
+      .status-item {
+        gap: 8px;
+        letter-spacing: 1px;
+      }
+    }
+
+    /* Responsive - Phone */
+    @media (max-width: 480px) {
+      .container {
+        padding: 10px;
+        padding-bottom: 55px;
+        align-items: flex-start;
+        padding-top: 20px;
+      }
+
+      .terminal {
+        padding: 20px 15px;
+        border-width: 2px;
+        box-shadow:
+          0 0 20px rgba(0, 255, 255, 0.3),
+          inset 0 0 20px rgba(0, 255, 255, 0.05),
+          0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+
+      .terminal::before,
+      .terminal::after {
+        width: 15px;
+        height: 15px;
+        border-width: 2px;
+      }
+
+      .logo {
+        font-size: 1.8rem;
+        letter-spacing: 6px;
+      }
+
+      .subtitle {
+        font-size: 0.7rem;
+        letter-spacing: 3px;
+        margin-top: 10px;
+      }
+
+      .header {
+        margin-bottom: 15px;
+      }
+
+      .divider {
+        margin: 15px 0;
+      }
+
+      .auth-section {
+        margin: 15px 0;
+        gap: 10px;
+      }
+
+      .auth-label {
+        font-size: 0.7rem;
+        letter-spacing: 3px;
+      }
+
+      .oauth-btn {
+        padding: 14px 16px;
+        font-size: 0.85rem;
+        letter-spacing: 2px;
+        border-width: 1px;
+        gap: 10px;
+      }
+
+      .oauth-btn svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .services {
+        margin-top: 20px;
+        padding-top: 20px;
+      }
+
+      .services-title {
+        font-size: 0.75rem;
+        letter-spacing: 3px;
+        margin-bottom: 15px;
+      }
+
+      .service-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .service-link {
+        padding: 12px 8px;
+        border-width: 1px;
+      }
+
+      .service-name {
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+      }
+
+      .service-desc {
+        font-size: 0.65rem;
+        margin-top: 4px;
+      }
+
+      .status-bar {
+        padding: 8px 12px;
+        font-size: 0.6rem;
+      }
+
+      .status-item:nth-child(2) {
+        display: none;
+      }
+
+      .status-item {
+        gap: 6px;
+        letter-spacing: 1px;
+      }
+
+      .pulse {
+        width: 6px;
+        height: 6px;
+      }
+
+      .error {
+        font-size: 0.75rem;
+      }
+    }
+
+    /* Responsive - Very small phones */
+    @media (max-width: 360px) {
+      .logo {
+        font-size: 1.5rem;
+        letter-spacing: 4px;
+      }
+
+      .subtitle {
+        font-size: 0.6rem;
+        letter-spacing: 2px;
+      }
+
+      .service-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+    }
+
+    /* Tall phones - ensure content doesn't overflow */
+    @media (max-height: 700px) and (max-width: 480px) {
+      .container {
+        min-height: auto;
+        padding-top: 10px;
+      }
+
+      .header {
+        margin-bottom: 10px;
+      }
+
+      .divider {
+        margin: 10px 0;
+      }
+
+      .auth-section {
+        margin: 12px 0;
+      }
+
+      .services {
+        margin-top: 15px;
+        padding-top: 15px;
+      }
+    }
+
+    /* Landscape phone */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .container {
+        min-height: auto;
+        padding: 10px 20px 50px;
+        align-items: flex-start;
+      }
+
+      .terminal {
+        padding: 15px 20px;
+      }
+
+      .header {
+        margin-bottom: 10px;
+      }
+
+      .logo {
+        font-size: 1.8rem;
+      }
+
+      .subtitle {
+        font-size: 0.7rem;
+        margin-top: 5px;
+      }
+
+      .divider {
+        margin: 8px 0;
+      }
+
+      .auth-section {
+        margin: 10px 0;
+        gap: 8px;
+      }
+
+      .services {
+        margin-top: 15px;
+        padding-top: 10px;
+      }
+
+      .service-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
       }
     }
   </style>
 </head>
 <body>
+  <!-- Background image -->
+  <div class="bg-image"></div>
+
   <!-- Three.js WebGL container -->
   <div id="webgl-container"></div>
 
@@ -447,52 +902,49 @@
 
       <div class="divider"></div>
 
-      <form id="loginForm">
-        <div class="input-group">
-          <label for="username">[ AI USER ID ]</label>
-          <input
-            type="text"
-            id="username"
-            placeholder="ENTER NEURAL ID"
-            autocomplete="username"
-          >
-        </div>
+      <div class="auth-section">
+        <div class="auth-label">[ Authenticate ]</div>
 
-        <div class="input-group">
-          <label for="password">[ AUTH TOKEN ]</label>
-          <input
-            type="password"
-            id="password"
-            placeholder="••••••••••••••••"
-            autocomplete="current-password"
-          >
-        </div>
+        <a href="/auth/google" class="oauth-btn oauth-btn--google">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+          </svg>
+          <span class="btn-text">Authenticate with Google</span>
+        </a>
+
+        <div class="auth-separator"><span>or</span></div>
+
+        <a href="/auth/github" class="oauth-btn oauth-btn--github">
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 1.27a11 11 0 00-3.48 21.46c.55.09.73-.28.73-.55v-1.84c-3.03.64-3.67-1.46-3.67-1.46-.55-1.29-1.28-1.65-1.28-1.65-.92-.65.1-.65.1-.65 1.1 0 1.73 1.1 1.73 1.1.92 1.65 2.57 1.2 3.21.92a2.16 2.16 0 01.64-1.47c-2.47-.27-5.04-1.19-5.04-5.5 0-1.1.46-2.1 1.1-2.76a3.55 3.55 0 01.1-2.64s.84-.27 2.75 1.02a9.58 9.58 0 015 0c1.91-1.3 2.75-1.02 2.75-1.02.55 1.29.2 2.4.1 2.64.73.73 1.1 1.65 1.1 2.76 0 4.32-2.58 5.23-5.04 5.5.45.37.82.92.82 2.02v3.03c0 .27.18.64.73.55A11 11 0 0012 1.27"/>
+          </svg>
+          <span class="btn-text">Authenticate with GitHub</span>
+        </a>
 
         <div class="error" id="error">
-          ⚠ AI CORE // ACCESS DENIED ⚠
+          ⚠ AUTHENTICATION FAILED ⚠
         </div>
-
-        <button type="submit" class="btn">
-          INITIALIZE AI LINK
-        </button>
-      </form>
+      </div>
 
       <div class="services">
         <div class="services-title">[ AI MODULES ]</div>
         <div class="service-grid">
-          <a href="https://archie.averroes.cloud" class="service-link">
+          <a href="/service/core" class="service-link">
             <div class="service-name">CORE</div>
             <div class="service-desc">Neural Interface</div>
           </a>
-          <a href="#" class="service-link" data-service="dashboard">
+          <a href="/service/cortex" class="service-link">
             <div class="service-name">CORTEX</div>
             <div class="service-desc">AI Dashboard</div>
           </a>
-          <a href="#" class="service-link" data-service="portfolio">
+          <a href="/service/memory" class="service-link">
             <div class="service-name">MEMORY</div>
             <div class="service-desc">Data Vault</div>
           </a>
-          <a href="#" class="service-link" data-service="lab">
+          <a href="/service/nexus" class="service-link">
             <div class="service-name">NEXUS</div>
             <div class="service-desc">AI Lab</div>
           </a>
@@ -518,86 +970,32 @@
   <script type="module" src="/src/main.js"></script>
 
   <script>
-    // Load saved credentials on page load
-    window.addEventListener('DOMContentLoaded', () => {
-      const savedUserId = localStorage.getItem('archie_ai_user_id');
-      const savedToken = localStorage.getItem('archie_auth_token');
-
-      if (savedUserId) {
-        document.getElementById('username').value = savedUserId;
-      }
-      if (savedToken) {
-        document.getElementById('password').value = savedToken;
-      }
-    });
-
-    // Time update
+    // UTC time update
     function updateTime() {
       const now = new Date();
-      const timeStr = now.toTimeString().split(' ')[0];
-      document.getElementById('time').textContent = `UTC ${timeStr}`;
+      const h = String(now.getUTCHours()).padStart(2, '0');
+      const m = String(now.getUTCMinutes()).padStart(2, '0');
+      const s = String(now.getUTCSeconds()).padStart(2, '0');
+      document.getElementById('time').textContent = `UTC ${h}:${m}:${s}`;
     }
     updateTime();
     setInterval(updateTime, 1000);
 
-    // Login form
-    document.getElementById('loginForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const aiUserId = document.getElementById('username').value;
-      const authToken = document.getElementById('password').value;
+    // Show error from OAuth redirect if present
+    const urlParams = new URLSearchParams(window.location.search);
+    const authError = urlParams.get('error');
+    if (authError) {
       const errorEl = document.getElementById('error');
-      const btn = document.querySelector('.btn');
-
-      errorEl.classList.remove('show');
-
-      // Validate authentication
-      if (!aiUserId || !authToken) {
-        errorEl.textContent = '⚠ AI CORE // INPUT REQUIRED ⚠';
-        errorEl.classList.add('show');
-        setTimeout(() => errorEl.classList.remove('show'), 3000);
-        return;
-      }
-
-      // Validate AI User ID range (2021-2040)
-      const userId = parseInt(aiUserId);
-      if (isNaN(userId) || userId < 2021 || userId > 2040) {
-        errorEl.textContent = '⚠ AI USER ID // INVALID RANGE (2021-2040) ⚠';
-        errorEl.classList.add('show');
-        setTimeout(() => errorEl.classList.remove('show'), 3000);
-        return;
-      }
-
-      // Validate Auth Token (must be Averroes@2021)
-      if (authToken !== 'Averroes@2021') {
-        errorEl.textContent = '⚠ AUTH TOKEN // ACCESS DENIED ⚠';
-        errorEl.classList.add('show');
-        setTimeout(() => errorEl.classList.remove('show'), 3000);
-        return;
-      }
-
-      // Save valid credentials to localStorage
-      localStorage.setItem('archie_ai_user_id', aiUserId);
-      localStorage.setItem('archie_auth_token', authToken);
-      localStorage.setItem('archie_last_login', new Date().toISOString());
-
-      // Success animation
-      btn.textContent = 'ESTABLISHING CONNECTION...';
-      btn.style.pointerEvents = 'none';
-
-      setTimeout(() => {
-        window.location.href = 'https://archie.averroes.cloud';
-      }, 1500);
-    });
-
-    // Service links
-    document.querySelectorAll('[data-service]').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const service = e.currentTarget.dataset.service;
-        alert(`Neural node "${service.toUpperCase()}" initializing...\\nComing soon!`);
-      });
-    });
+      const messages = {
+        'google_auth_failed': '⚠ GOOGLE AUTH // ACCESS DENIED ⚠',
+        'github_auth_failed': '⚠ GITHUB AUTH // ACCESS DENIED ⚠',
+        'login_required': '⚠ AUTHENTICATION REQUIRED ⚠'
+      };
+      errorEl.textContent = messages[authError] || '⚠ AUTHENTICATION FAILED ⚠';
+      errorEl.classList.add('show');
+      setTimeout(() => errorEl.classList.remove('show'), 5000);
+      window.history.replaceState({}, document.title, '/');
+    }
   </script>
 </body>
 </html>

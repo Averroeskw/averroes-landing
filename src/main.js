@@ -11,10 +11,11 @@ class NeuralField {
     this.container = document.getElementById('webgl-container');
     this.mouse = new THREE.Vector2();
     this.targetMouse = new THREE.Vector2();
+    this.isMobile = window.innerWidth < 768 || /Mobi|Android/i.test(navigator.userAgent);
+    this.isLowEnd = this.isMobile && (navigator.hardwareConcurrency || 4) <= 4;
 
     this.init();
     this.createParticleField();
-    this.createEnergyField();
     this.createPostProcessing();
     this.addEventListeners();
     this.animate();
@@ -27,20 +28,22 @@ class NeuralField {
 
     // Camera - pulled back for smaller appearance
     this.camera = new THREE.PerspectiveCamera(
-      60, // Reduced FOV from 75
+      60,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     );
-    this.camera.position.z = 80; // Pulled back from 50
+    this.camera.position.z = 80;
 
-    // Renderer
+    // Renderer - reduce quality on mobile
+    const maxDpr = this.isMobile ? 1.5 : 2;
     this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true
+      antialias: !this.isMobile,
+      alpha: true,
+      powerPreference: this.isMobile ? 'low-power' : 'high-performance'
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxDpr));
     this.renderer.setClearColor(0x000000, 0);
     this.container.appendChild(this.renderer.domElement);
 
@@ -49,7 +52,7 @@ class NeuralField {
   }
 
   createParticleField() {
-    const particleCount = 3000; // Reduced count
+    const particleCount = this.isLowEnd ? 800 : this.isMobile ? 1500 : 3000;
     const positions = new Float32Array(particleCount * 3);
     const colors = new Float32Array(particleCount * 3);
     const sizes = new Float32Array(particleCount);
@@ -179,109 +182,6 @@ class NeuralField {
     return texture;
   }
 
-  createEnergyField() {
-    // Energy waves geometry
-    const waveCount = 3;
-
-    for (let i = 0; i < waveCount; i++) {
-      const geometry = new THREE.TorusGeometry(20 + i * 10, 0.5, 16, 100);
-      const material = new THREE.ShaderMaterial({
-        uniforms: {
-          uTime: { value: 0 },
-          uColor: { value: new THREE.Color(0x00ffff) },
-          uAlpha: { value: 0.1 - i * 0.03 } // Reduced opacity
-        },
-        vertexShader: `
-          uniform float uTime;
-          varying vec3 vPosition;
-
-          void main() {
-            vPosition = position;
-
-            vec3 pos = position;
-            float wave = sin(position.x * 3.0 + uTime * 2.0) * 0.5;
-            pos.z += wave;
-
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform vec3 uColor;
-          uniform float uAlpha;
-          varying vec3 vPosition;
-
-          void main() {
-            float glow = abs(sin(vPosition.x * 10.0)) * 0.5 + 0.5;
-            gl_FragColor = vec4(uColor * glow, uAlpha);
-          }
-        `,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        side: THREE.DoubleSide
-      });
-
-      const wave = new THREE.Mesh(geometry, material);
-      wave.rotation.x = Math.PI / 2 + i * 0.2;
-      wave.position.z = -30 + i * 5;
-      // Commented out - too visible
-      // this.scene.add(wave);
-
-      if (!this.energyWaves) this.energyWaves = [];
-      this.energyWaves.push(wave);
-    }
-
-    // Central energy core
-    const coreGeometry = new THREE.SphereGeometry(3, 32, 32);
-    const coreMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 }
-      },
-      vertexShader: `
-        uniform float uTime;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          vPosition = position;
-
-          vec3 pos = position;
-          float displacement = sin(position.x * 5.0 + uTime * 3.0) * 0.1;
-          displacement += sin(position.y * 5.0 + uTime * 2.0) * 0.1;
-          displacement += sin(position.z * 5.0 + uTime * 4.0) * 0.1;
-
-          pos += normal * displacement;
-
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform float uTime;
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-
-        void main() {
-          float fresnel = pow(1.0 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.0);
-
-          vec3 color1 = vec3(0.0, 1.0, 1.0); // Cyan
-          vec3 color2 = vec3(0.0, 0.5, 1.0); // Blue
-          vec3 color = mix(color1, color2, sin(uTime + vPosition.y * 3.0) * 0.5 + 0.5);
-
-          float alpha = fresnel * 0.8;
-
-          gl_FragColor = vec4(color, alpha);
-        }
-      `,
-      transparent: true,
-      blending: THREE.AdditiveBlending
-    });
-
-    this.energyCore = new THREE.Mesh(coreGeometry, coreMaterial);
-    this.energyCore.scale.setScalar(0.5); // Smaller
-    // Commented out - too visible
-    // this.scene.add(this.energyCore);
-  }
-
   createPostProcessing() {
     // Composer
     this.composer = new EffectComposer(this.renderer);
@@ -290,18 +190,26 @@ class NeuralField {
     const renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(renderPass);
 
-    // Bloom pass - reduced strength
+    // Skip heavy post-processing on low-end mobile
+    if (this.isLowEnd) {
+      return;
+    }
+
+    // Bloom pass - reduced strength on mobile
+    const bloomStrength = this.isMobile ? 0.5 : 0.8;
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.8,  // strength - reduced from 1.5
-      0.3,  // radius - reduced from 0.4
-      0.9   // threshold - increased from 0.85 (less glow)
+      bloomStrength,
+      0.3,
+      0.9
     );
     this.composer.addPass(bloomPass);
 
-    // Film grain pass
-    const filmPass = new FilmPass(0.15, 0.025, 648, false);
-    this.composer.addPass(filmPass);
+    // Film grain pass - skip on mobile
+    if (!this.isMobile) {
+      const filmPass = new FilmPass(0.15, 0.025, 648, false);
+      this.composer.addPass(filmPass);
+    }
 
     // Chromatic aberration pass
     const chromaticAberrationShader = {
@@ -381,7 +289,7 @@ class NeuralField {
         duration: 1,
         ease: 'power2.out',
         onUpdate: () => {
-          this.camera.position.z = THREE.MathUtils.clamp(this.camera.position.z, 30, 70);
+          this.camera.position.z = THREE.MathUtils.clamp(this.camera.position.z, 40, 90);
         }
       });
     });
@@ -422,35 +330,15 @@ class NeuralField {
         positions[i + 2] += this.particleVelocities[i + 2];
 
         // Boundary check
-        const dist = Math.sqrt(
-          positions[i] ** 2 +
-          positions[i + 1] ** 2 +
-          positions[i + 2] ** 2
-        );
+        const distSq = positions[i] ** 2 + positions[i + 1] ** 2 + positions[i + 2] ** 2;
 
-        if (dist > 80 || dist < 20) {
+        if (distSq > 6400 || distSq < 400) {
           this.particleVelocities[i] *= -1;
           this.particleVelocities[i + 1] *= -1;
           this.particleVelocities[i + 2] *= -1;
         }
       }
       this.particleField.geometry.attributes.position.needsUpdate = true;
-    }
-
-    // Update energy waves
-    if (this.energyWaves) {
-      this.energyWaves.forEach((wave, i) => {
-        wave.material.uniforms.uTime.value = elapsedTime;
-        wave.rotation.z = elapsedTime * (0.1 + i * 0.05);
-        wave.scale.setScalar(1 + Math.sin(elapsedTime * 2 + i) * 0.1);
-      });
-    }
-
-    // Update energy core
-    if (this.energyCore) {
-      this.energyCore.material.uniforms.uTime.value = elapsedTime;
-      this.energyCore.rotation.x = elapsedTime * 0.3;
-      this.energyCore.rotation.y = elapsedTime * 0.5;
     }
 
     // Camera follows mouse slightly
@@ -470,54 +358,72 @@ if (document.readyState === 'loading') {
   new NeuralField();
 }
 
-// UI Animations with GSAP
-document.addEventListener('DOMContentLoaded', () => {
-  // Animate terminal entrance
-  gsap.from('.terminal', {
-    opacity: 0,
-    scale: 0.8,
-    duration: 1,
-    ease: 'power3.out',
-    delay: 0.5
-  });
+// UI Animations with GSAP timeline
+function initAnimations() {
+  const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-  // Animate logo
-  gsap.from('.logo', {
-    opacity: 0,
-    y: -50,
-    duration: 1,
-    ease: 'power3.out',
-    delay: 0.8
-  });
+  // Cinematic boot sequence
+  tl.fromTo('.terminal',
+    { opacity: 0, scale: 0.85, y: 30 },
+    { opacity: 1, scale: 1, y: 0, duration: 1.2 },
+    0.3
+  )
+  .fromTo('.logo',
+    { opacity: 0, y: -40, filter: 'blur(10px)' },
+    { opacity: 1, y: 0, filter: 'blur(0px)', duration: 0.8 },
+    0.7
+  )
+  .fromTo('.subtitle',
+    { opacity: 0 },
+    { opacity: 0.9, duration: 0.3 },
+    1.0
+  )
+  .fromTo('.divider',
+    { scaleX: 0 },
+    { scaleX: 1, duration: 0.6, ease: 'power2.inOut' },
+    1.2
+  )
+  .fromTo('.auth-label',
+    { opacity: 0, letterSpacing: '12px' },
+    { opacity: 1, letterSpacing: '4px', duration: 0.5 },
+    1.4
+  )
+  .fromTo('.oauth-btn',
+    { opacity: 0, x: -40, skewX: -5 },
+    { opacity: 1, x: 0, skewX: 0, stagger: 0.15, duration: 0.7, ease: 'power2.out' },
+    1.5
+  )
+  .fromTo('.services-title',
+    { opacity: 0 },
+    { opacity: 1, duration: 0.4 },
+    1.9
+  )
+  .fromTo('.service-link',
+    { opacity: 0, scale: 0.5, rotateX: 15 },
+    { opacity: 1, scale: 1, rotateX: 0, stagger: 0.1, duration: 0.5, ease: 'back.out(1.5)' },
+    2.0
+  )
+  .fromTo('.status-bar',
+    { opacity: 0, y: 30 },
+    { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' },
+    2.2
+  );
 
-  // Animate inputs
-  gsap.from('.input-group', {
-    opacity: 0,
-    x: -30,
-    stagger: 0.2,
-    duration: 0.8,
-    ease: 'power2.out',
-    delay: 1
+  // Continuous subtle float on terminal
+  gsap.to('.terminal', {
+    y: -4,
+    duration: 3,
+    ease: 'sine.inOut',
+    yoyo: true,
+    repeat: -1,
+    delay: 2.5
   });
+}
 
-  // Animate services
-  gsap.from('.service-link', {
-    opacity: 0,
-    scale: 0,
-    stagger: 0.1,
-    duration: 0.6,
-    ease: 'back.out(1.7)',
-    delay: 1.5
-  });
-
-  // Animate status bar
-  gsap.from('.status-bar', {
-    opacity: 0,
-    y: 50,
-    duration: 0.8,
-    ease: 'power2.out',
-    delay: 1.8
-  });
-});
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAnimations);
+} else {
+  initAnimations();
+}
 
 export default NeuralField;

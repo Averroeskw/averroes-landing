@@ -2,16 +2,28 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>404 // NEURAL PATH NOT FOUND</title>
   <style>
+    @font-face {
+      font-family: 'Morphesd';
+      src: url('/fonts/Morphesd-Regular.otf') format('opentype'),
+           url('/fonts/Morphesd-Regular.ttf') format('truetype');
+      font-style: normal;
+      font-weight: normal;
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Courier New', monospace;
+      font-family: 'Morphesd', 'Courier New', monospace;
       background: #000;
       color: #0ff;
       overflow: hidden;
+      touch-action: none;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
     }
 
     #gameCanvas {
@@ -31,7 +43,7 @@
 
     .header {
       text-align: center;
-      padding: 30px;
+      padding: 20px;
       background: rgba(0, 0, 0, 0.7);
     }
 
@@ -56,61 +68,73 @@
       letter-spacing: 3px;
     }
 
+    .sub-message {
+      font-size: 0.9rem;
+      margin-top: 10px;
+      color: #0aa;
+    }
+
     .instructions {
       position: fixed;
-      bottom: 30px;
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
       text-align: center;
       background: rgba(0, 0, 0, 0.8);
-      padding: 20px 40px;
+      padding: 15px 30px;
       border: 2px solid #0ff;
       pointer-events: auto;
+      max-width: 90vw;
     }
 
     .instructions h3 {
-      margin-bottom: 15px;
-      font-size: 1.2rem;
+      margin-bottom: 10px;
+      font-size: 1rem;
       text-shadow: 0 0 10px #0ff;
     }
 
     .controls {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      margin-top: 10px;
-      font-size: 0.9rem;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 0.85rem;
+    }
+
+    .controls.touch-controls {
+      grid-template-columns: 1fr;
     }
 
     .control-item {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
 
     .key {
       background: rgba(0, 255, 255, 0.2);
-      padding: 5px 10px;
+      padding: 4px 8px;
       border: 1px solid #0ff;
-      min-width: 60px;
+      min-width: 50px;
       text-align: center;
+      font-size: 0.8rem;
     }
 
     .stats {
       position: fixed;
-      top: 120px;
-      right: 30px;
+      top: 100px;
+      right: 15px;
       background: rgba(0, 0, 0, 0.8);
-      padding: 20px;
+      padding: 12px 15px;
       border: 2px solid #0ff;
-      min-width: 200px;
+      min-width: 150px;
     }
 
     .stat {
       display: flex;
       justify-content: space-between;
-      margin: 10px 0;
-      font-size: 1.1rem;
+      margin: 6px 0;
+      font-size: 0.95rem;
     }
 
     .stat-value {
@@ -119,12 +143,13 @@
     }
 
     .home-btn {
-      margin-top: 20px;
-      padding: 12px 30px;
+      margin-top: 12px;
+      padding: 10px 20px;
       background: transparent;
       border: 2px solid #0ff;
       color: #0ff;
-      font-family: 'Courier New', monospace;
+      font-family: 'Morphesd', 'Courier New', monospace;
+      font-size: 0.85rem;
       cursor: pointer;
       transition: all 0.3s ease;
       text-decoration: none;
@@ -144,12 +169,14 @@
       left: 50%;
       transform: translate(-50%, -50%);
       background: rgba(0, 0, 0, 0.95);
-      padding: 50px;
+      padding: 40px;
       border: 3px solid #f00;
       text-align: center;
       display: none;
       z-index: 100;
       pointer-events: auto;
+      max-width: 90vw;
+      width: 400px;
     }
 
     .game-over.show {
@@ -163,16 +190,24 @@
     }
 
     .game-over-title {
-      font-size: 3rem;
+      font-size: 2.5rem;
       color: #f00;
       text-shadow: 0 0 20px #f00;
-      margin-bottom: 20px;
+      margin-bottom: 15px;
     }
 
     .final-score {
-      font-size: 2rem;
+      font-size: 1.5rem;
       color: #0ff;
-      margin: 20px 0;
+      margin: 15px 0;
+    }
+
+    .game-over-buttons {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
     }
 
     .scanline {
@@ -191,6 +226,267 @@
       pointer-events: none;
       z-index: 1000;
     }
+
+    /* Touch controls overlay */
+    .touch-zones {
+      display: none;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 35vh;
+      z-index: 50;
+      pointer-events: auto;
+    }
+
+    .touch-zone {
+      position: absolute;
+      bottom: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.15;
+    }
+
+    .touch-zone.active {
+      opacity: 0.35;
+    }
+
+    .touch-left {
+      left: 0;
+      width: 35%;
+      border-right: 1px solid rgba(0, 255, 255, 0.3);
+    }
+
+    .touch-right {
+      right: 0;
+      width: 35%;
+      border-left: 1px solid rgba(0, 255, 255, 0.3);
+    }
+
+    .touch-fire {
+      left: 35%;
+      width: 30%;
+    }
+
+    .touch-icon {
+      font-size: 2rem;
+      color: #0ff;
+      pointer-events: none;
+    }
+
+    /* Responsive - Tablet */
+    @media (max-width: 768px) {
+      .header {
+        padding: 15px;
+      }
+
+      .error-code {
+        font-size: 3rem;
+      }
+
+      .message {
+        font-size: 1rem;
+        letter-spacing: 2px;
+      }
+
+      .sub-message {
+        font-size: 0.75rem;
+      }
+
+      .stats {
+        top: 80px;
+        right: 10px;
+        padding: 10px 12px;
+        min-width: 130px;
+        border-width: 1px;
+      }
+
+      .stat {
+        font-size: 0.8rem;
+        margin: 5px 0;
+      }
+
+      .instructions {
+        bottom: 15px;
+        padding: 12px 20px;
+      }
+
+      .instructions h3 {
+        font-size: 0.9rem;
+      }
+
+      .game-over {
+        padding: 30px 20px;
+      }
+
+      .game-over-title {
+        font-size: 2rem;
+      }
+
+      .final-score {
+        font-size: 1.2rem;
+      }
+    }
+
+    /* Responsive - Phone */
+    @media (max-width: 480px) {
+      .header {
+        padding: 10px;
+      }
+
+      .error-code {
+        font-size: 2.2rem;
+      }
+
+      .message {
+        font-size: 0.8rem;
+        letter-spacing: 2px;
+        margin-top: 5px;
+      }
+
+      .sub-message {
+        font-size: 0.65rem;
+        margin-top: 5px;
+      }
+
+      .stats {
+        top: auto;
+        bottom: auto;
+        top: 70px;
+        right: 5px;
+        padding: 8px 10px;
+        min-width: auto;
+        font-size: 0.75rem;
+      }
+
+      .stat {
+        font-size: 0.7rem;
+        margin: 3px 0;
+        gap: 10px;
+      }
+
+      .instructions {
+        bottom: 10px;
+        padding: 10px 15px;
+        border-width: 1px;
+      }
+
+      .instructions h3 {
+        font-size: 0.8rem;
+        margin-bottom: 6px;
+      }
+
+      .controls {
+        font-size: 0.75rem;
+        gap: 5px;
+      }
+
+      .key {
+        padding: 3px 6px;
+        min-width: 40px;
+        font-size: 0.7rem;
+      }
+
+      .home-btn {
+        padding: 8px 15px;
+        font-size: 0.75rem;
+        margin-top: 8px;
+      }
+
+      .game-over {
+        padding: 25px 15px;
+        width: 85vw;
+      }
+
+      .game-over-title {
+        font-size: 1.6rem;
+      }
+
+      .final-score {
+        font-size: 1rem;
+      }
+
+      .game-over-buttons .home-btn {
+        padding: 10px 15px;
+        font-size: 0.75rem;
+      }
+    }
+
+    /* Touch device: show touch zones, hide keyboard controls */
+    @media (hover: none) and (pointer: coarse) {
+      .touch-zones {
+        display: block;
+      }
+
+      .controls:not(.touch-controls) {
+        display: none;
+      }
+
+      .controls.touch-controls {
+        display: grid;
+      }
+
+      .instructions {
+        bottom: calc(35vh + 10px);
+      }
+    }
+
+    /* Landscape phone */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .header {
+        padding: 8px;
+      }
+
+      .error-code {
+        font-size: 1.8rem;
+      }
+
+      .message {
+        font-size: 0.7rem;
+        margin-top: 3px;
+      }
+
+      .sub-message {
+        display: none;
+      }
+
+      .stats {
+        top: 60px;
+        right: 5px;
+        padding: 6px 8px;
+      }
+
+      .stat {
+        font-size: 0.7rem;
+        margin: 2px 0;
+      }
+
+      .instructions {
+        bottom: 5px;
+        padding: 8px 15px;
+      }
+
+      .game-over {
+        padding: 20px;
+      }
+
+      .game-over-title {
+        font-size: 1.5rem;
+      }
+    }
+
+    /* Landscape phone with touch */
+    @media (max-height: 500px) and (orientation: landscape) and (hover: none) {
+      .touch-zones {
+        height: 50vh;
+      }
+
+      .instructions {
+        bottom: calc(50vh + 5px);
+      }
+    }
   </style>
 </head>
 <body>
@@ -202,7 +498,7 @@
     <div class="header">
       <div class="error-code">404</div>
       <div class="message">NEURAL PATH NOT FOUND</div>
-      <div class="message" style="font-size: 0.9rem; margin-top: 10px; color: #0aa;">
+      <div class="message sub-message">
         DEFEND THE SYSTEM WHILE WE REROUTE
       </div>
     </div>
@@ -222,11 +518,12 @@
       </div>
     </div>
 
-    <div class="instructions">
+    <div class="instructions" id="instructions">
       <h3>[ CONTROLS ]</h3>
-      <div class="controls">
+      <!-- Desktop controls -->
+      <div class="controls" id="desktopControls">
         <div class="control-item">
-          <span class="key">← →</span>
+          <span class="key">&larr; &rarr;</span>
           <span>MOVE</span>
         </div>
         <div class="control-item">
@@ -234,50 +531,80 @@
           <span>FIRE</span>
         </div>
       </div>
+      <!-- Touch controls info -->
+      <div class="controls touch-controls" id="touchControlsInfo">
+        <div class="control-item" style="justify-content: center;">
+          <span>TAP LEFT/RIGHT TO MOVE &bull; CENTER TO FIRE</span>
+        </div>
+      </div>
       <a href="/" class="home-btn">RETURN TO BASE</a>
+    </div>
+  </div>
+
+  <!-- Touch control zones -->
+  <div class="touch-zones" id="touchZones">
+    <div class="touch-zone touch-left" data-action="left">
+      <span class="touch-icon">&larr;</span>
+    </div>
+    <div class="touch-zone touch-fire" data-action="fire">
+      <span class="touch-icon">&bull;</span>
+    </div>
+    <div class="touch-zone touch-right" data-action="right">
+      <span class="touch-icon">&rarr;</span>
     </div>
   </div>
 
   <div class="game-over" id="gameOver">
     <div class="game-over-title">SYSTEM COMPROMISED</div>
     <div class="final-score">FINAL SCORE: <span id="finalScore">0</span></div>
-    <div style="margin-top: 30px;">
+    <div class="game-over-buttons">
       <button class="home-btn" onclick="restartGame()">REBOOT SYSTEM</button>
-      <a href="/" class="home-btn" style="margin-left: 20px;">RETURN TO BASE</a>
+      <a href="/" class="home-btn">RETURN TO BASE</a>
     </div>
   </div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    const isTouchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    function resizeCanvas() {
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.scale(dpr, dpr);
+      player.y = window.innerHeight - (isTouchDevice ? window.innerHeight * 0.4 : 100);
+    }
 
-    window.addEventListener('resize', () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    });
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
 
     // Game state
     let gameRunning = true;
     let score = 0;
     let wave = 1;
     let health = 100;
+    const W = () => window.innerWidth;
+    const H = () => window.innerHeight;
 
-    // Player
+    // Player - scale size relative to screen
+    const baseSize = Math.max(20, Math.min(30, window.innerWidth / 25));
     const player = {
-      x: canvas.width / 2,
-      y: canvas.height - 100,
-      width: 30,
-      height: 30,
-      speed: 7,
+      x: W() / 2,
+      y: H() - 100,
+      width: baseSize,
+      height: baseSize,
+      speed: Math.max(5, Math.min(9, W() / 130)),
       dx: 0
     };
 
     // Bullets
     const bullets = [];
     const bulletSpeed = 8;
+    let lastShot = 0;
+    const shootCooldown = isTouchDevice ? 180 : 120;
 
     // Enemies
     const enemies = [];
@@ -288,7 +615,9 @@
 
     // Input
     const keys = {};
+    const touchState = { left: false, right: false, fire: false };
 
+    // Keyboard input
     window.addEventListener('keydown', (e) => {
       keys[e.key] = true;
       if (e.key === ' ') {
@@ -296,10 +625,50 @@
         if (gameRunning) shoot();
       }
     });
+    window.addEventListener('keyup', (e) => { keys[e.key] = false; });
 
-    window.addEventListener('keyup', (e) => {
-      keys[e.key] = false;
-    });
+    // Touch input
+    if (isTouchDevice) {
+      const zones = document.getElementById('touchZones');
+
+      function handleTouches(e) {
+        e.preventDefault();
+        touchState.left = false;
+        touchState.right = false;
+        touchState.fire = false;
+
+        const zoneEls = { left: zones.querySelector('.touch-left'), right: zones.querySelector('.touch-right'), fire: zones.querySelector('.touch-fire') };
+        Object.values(zoneEls).forEach(z => z.classList.remove('active'));
+
+        for (const touch of e.touches) {
+          const el = document.elementFromPoint(touch.clientX, touch.clientY);
+          if (!el) continue;
+          const zone = el.closest('.touch-zone');
+          if (!zone) continue;
+          const action = zone.dataset.action;
+          if (action) {
+            touchState[action] = true;
+            zone.classList.add('active');
+          }
+        }
+      }
+
+      zones.addEventListener('touchstart', handleTouches, { passive: false });
+      zones.addEventListener('touchmove', handleTouches, { passive: false });
+      zones.addEventListener('touchend', handleTouches, { passive: false });
+      zones.addEventListener('touchcancel', handleTouches, { passive: false });
+
+      // Auto-shoot when fire zone held
+      setInterval(() => {
+        if (touchState.fire && gameRunning) {
+          const now = Date.now();
+          if (now - lastShot > shootCooldown) {
+            shoot();
+            lastShot = now;
+          }
+        }
+      }, 50);
+    }
 
     function shoot() {
       bullets.push({
@@ -311,16 +680,16 @@
     }
 
     function spawnEnemy() {
+      const size = Math.max(20, baseSize);
       enemies.push({
-        x: Math.random() * (canvas.width - 30),
-        y: -30,
-        width: 30,
-        height: 30,
+        x: Math.random() * (W() - size),
+        y: -size,
+        width: size,
+        height: size,
         speed: enemySpeed + Math.random() * 2
       });
     }
 
-    // Spawn enemies
     setInterval(() => {
       if (gameRunning) {
         spawnEnemy();
@@ -329,10 +698,10 @@
     }, 1000);
 
     function createExplosion(x, y, color = '#0ff') {
-      for (let i = 0; i < 15; i++) {
+      const count = isTouchDevice ? 8 : 15;
+      for (let i = 0; i < count; i++) {
         particles.push({
-          x,
-          y,
+          x, y,
           vx: (Math.random() - 0.5) * 6,
           vy: (Math.random() - 0.5) * 6,
           life: 1,
@@ -344,25 +713,25 @@
     function update() {
       if (!gameRunning) return;
 
-      // Player movement
-      if (keys['ArrowLeft'] || keys['a']) player.dx = -player.speed;
-      else if (keys['ArrowRight'] || keys['d']) player.dx = player.speed;
+      // Player movement - keyboard or touch
+      if (keys['ArrowLeft'] || keys['a'] || touchState.left) player.dx = -player.speed;
+      else if (keys['ArrowRight'] || keys['d'] || touchState.right) player.dx = player.speed;
       else player.dx = 0;
 
       player.x += player.dx;
-      player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
+      player.x = Math.max(0, Math.min(W() - player.width, player.x));
 
       // Update bullets
-      bullets.forEach((bullet, index) => {
-        bullet.y -= bulletSpeed;
-        if (bullet.y < 0) bullets.splice(index, 1);
-      });
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        bullets[i].y -= bulletSpeed;
+        if (bullets[i].y < 0) bullets.splice(i, 1);
+      }
 
       // Update enemies
-      enemies.forEach((enemy, index) => {
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const enemy = enemies[i];
         enemy.y += enemy.speed;
 
-        // Check collision with player
         if (
           enemy.x < player.x + player.width &&
           enemy.x + enemy.width > player.x &&
@@ -370,21 +739,22 @@
           enemy.y + enemy.height > player.y
         ) {
           createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, '#f00');
-          enemies.splice(index, 1);
+          enemies.splice(i, 1);
           health -= 10;
           updateStats();
           if (health <= 0) gameOver();
+          continue;
         }
 
-        // Remove if off screen
-        if (enemy.y > canvas.height) {
-          enemies.splice(index, 1);
-        }
-      });
+        if (enemy.y > H()) enemies.splice(i, 1);
+      }
 
-      // Check bullet-enemy collisions
-      bullets.forEach((bullet, bIndex) => {
-        enemies.forEach((enemy, eIndex) => {
+      // Bullet-enemy collisions
+      for (let b = bullets.length - 1; b >= 0; b--) {
+        for (let e = enemies.length - 1; e >= 0; e--) {
+          const bullet = bullets[b];
+          const enemy = enemies[e];
+          if (!bullet || !enemy) continue;
           if (
             bullet.x < enemy.x + enemy.width &&
             bullet.x + bullet.width > enemy.x &&
@@ -392,36 +762,36 @@
             bullet.y + bullet.height > enemy.y
           ) {
             createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
-            bullets.splice(bIndex, 1);
-            enemies.splice(eIndex, 1);
+            bullets.splice(b, 1);
+            enemies.splice(e, 1);
             score += 10;
             updateStats();
-
-            // Wave progression
             if (score % 100 === 0) {
               wave++;
               enemySpeed += 0.5;
               updateStats();
             }
+            break;
           }
-        });
-      });
+        }
+      }
 
       // Update particles
-      particles.forEach((p, index) => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life -= 0.02;
-        if (p.life <= 0) particles.splice(index, 1);
-      });
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].x += particles[i].vx;
+        particles[i].y += particles[i].vy;
+        particles[i].life -= 0.02;
+        if (particles[i].life <= 0) particles.splice(i, 1);
+      }
     }
 
     function draw() {
-      // Clear with trail effect
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // Draw player (triangle)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+      ctx.fillRect(0, 0, W(), H());
+
+      // Player
       ctx.fillStyle = '#0ff';
       ctx.shadowBlur = 20;
       ctx.shadowColor = '#0ff';
@@ -433,25 +803,21 @@
       ctx.fill();
       ctx.shadowBlur = 0;
 
-      // Draw bullets
+      // Bullets
       ctx.fillStyle = '#0f0';
       ctx.shadowBlur = 15;
       ctx.shadowColor = '#0f0';
-      bullets.forEach(bullet => {
-        ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
-      });
+      bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
       ctx.shadowBlur = 0;
 
-      // Draw enemies
+      // Enemies
       ctx.fillStyle = '#f00';
       ctx.shadowBlur = 15;
       ctx.shadowColor = '#f00';
-      enemies.forEach(enemy => {
-        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-      });
+      enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
       ctx.shadowBlur = 0;
 
-      // Draw particles
+      // Particles
       particles.forEach(p => {
         ctx.fillStyle = p.color;
         ctx.globalAlpha = p.life;
@@ -459,10 +825,10 @@
       });
       ctx.globalAlpha = 1;
 
-      // Draw stars
+      // Stars
       for (let i = 0; i < 50; i++) {
-        const x = (i * 137.5) % canvas.width;
-        const y = (i * 197.3 + Date.now() * 0.05) % canvas.height;
+        const x = (i * 137.5) % W();
+        const y = (i * 197.3 + Date.now() * 0.05) % H();
         ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
         ctx.fillRect(x, y, 1, 1);
       }
@@ -489,7 +855,7 @@
       enemies.length = 0;
       bullets.length = 0;
       particles.length = 0;
-      player.x = canvas.width / 2;
+      player.x = W() / 2;
       updateStats();
       document.getElementById('gameOver').classList.remove('show');
     }
